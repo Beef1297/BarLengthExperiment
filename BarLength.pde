@@ -1,5 +1,27 @@
 import processing.serial.*;
 
+public enum Mode {
+  EXPAND(0x0f),
+    SHRINK(0x0e),
+    TOGGLE(0x0d),
+    NONE(0x0c),
+    ;
+  private int val;
+  private Mode(int _val) {
+    this.val = _val;
+  }
+  public int getInt() {
+    return this.val;
+  }
+}
+// experiment state enum
+public enum State {
+  VIBRATION,
+    MEASURE_LENGTH,
+    FINISH,
+    NONE;
+}
+
 float pixelPitch = 0.311; // mm
 
 // serial
@@ -8,33 +30,15 @@ String portNum = "COM5";
 int baudrate = 115200;
 
 final float DEFAULT_LENGTH = 300; // mm
-// const val for serial
-final int EXPAND = 0x0f;
-final int SHRINK = 0x0e;
-final int TOGGLE = 0x0d;
-final int NONE = 0x0c;
-int mode = NONE;
 
-float velocity = 1.0; // mm/s
-
-// csv logging
-Table table;
-ArrayList<Integer> illusionCheck = new ArrayList<Integer>();
-
-// experiment state enum
-enum State {
-  VIBRATION,
-  MEASURE,
-  NONE;
-}
+Mode mode = Mode.NONE;
 State state = State.NONE;
 
-// -- for velocity-based control --
-boolean canChange = false;
-boolean isMoving = false;
+//float velocity = 1.0; // mm/s
 
-// OSC Client for vibration
-MyOSCClient oscClinet = new MyOSCClient();
+String subject = "test";
+ExperimentManager em = new ExperimentManager(subject);
+
 
 void setup() {
   fullScreen(P3D, 1);
@@ -47,32 +51,46 @@ void setup() {
     e.printStackTrace();
     exit();
   }
-  
-  // settings of OSC
-  oscClinet.init();
-  oscClinet.audioON();
-  
+
+  // debug
+  //state = State.MEASURE_LENGTH;
+  //
   frameRate(50);
+
+  // experiment manager
+  em.loadConditionTable(); // this method must be called in setup();
+  // set first condition
+  em.setNextCondition();
 }
 
 int counter = 0;
+int receivedByte = 0;
 void serialEvent(Serial p) {
   if (p.available() > 1) {
     while (p.read() != 0xFF) p.read();
 
-    int val = p.read();
-    if (val == EXPAND) {
-      mode = EXPAND;
-      //velocity += 1.0;
-    } else if (val == SHRINK) {
-      mode = SHRINK;
-      //velocity -= 1.0;
-    } else if (val == TOGGLE) {
-      mode = TOGGLE;
-    } else {
-      mode = NONE;
+    receivedByte = p.read();
+    if (state == State.VIBRATION) {
+      // if button is pushed while presenting vibration,
+      // that will mean illusion is induced.
+      if (receivedByte != Mode.NONE.getInt()) {
+        em.illusionInduced();
+      }
+    } else if (state == State.MEASURE_LENGTH) {
+      //print(val, counter);
+      if (receivedByte == Mode.EXPAND.getInt()) {
+        mode = Mode.EXPAND;
+        //velocity += 1.0;
+      } else if (receivedByte == Mode.SHRINK.getInt()) {
+        mode = Mode.SHRINK;
+        //velocity -= 1.0;
+      } else if (receivedByte == Mode.TOGGLE.getInt()) {
+        mode = Mode.TOGGLE;
+      } else {
+        mode = Mode.NONE;
+      }
     }
-    println(val, counter);
+    //println(val, counter);
     counter++;
   }
 }
@@ -88,23 +106,15 @@ float mmToPix(float mm) {
 }
 
 void changeParameter() {
-  boolean changing = mode == EXPAND || mode == SHRINK;
-  if (mode == EXPAND) {
+  //boolean changing = mode == Mode.EXPAND || mode == Mode.SHRINK;
+  if (mode == Mode.EXPAND) {
     barLength += 0.1;
-    //velocity += 1.0;
-    canChange = false;
-  } else if (mode == SHRINK) {
+  } else if (mode == Mode.SHRINK) {
     barLength -= 0.1;
-    //velocity -= 1.0;
-    canChange = false;
-  } else if (mode == TOGGLE && (canChange || changing)) {
+  } else if (mode == Mode.TOGGLE) {
     // FIXME: It's difficult to stop by just one time... because need to push at
     // the "very" same timing.
-    //velocity = 0;
-    isMoving = !isMoving;
-    canChange = false;
-  } else if (mode == NONE) {
-    canChange = true;
+  } else if (mode == Mode.NONE) {
   }
 }
 
@@ -112,16 +122,29 @@ float t;
 float barLength = 300.0;
 float widthAdjust = 0.95;
 float heightAdjust = 1/20.0;
-float resetTime = 10;
-int frameTimer = 0;
+color backgroundColor = color(255, 255, 255);
+//float vibrationTime = 10;
+//int frameTimer = 0;
 void draw() {
-  background(255);
+  if (state == State.VIBRATION) {
+    background(255, 255, 255); // reset
+  } else if (state == State.MEASURE_LENGTH) {
+    background(255, 220, 220);
+  } else if (state == State.FINISH) {
+    background(220, 255, 220);
+  } else {
+    background(255);
+  }
+  // --- text --
   textSize(32);
   fill(0);
   text("Length: "+barLength+" mm", width/8, height/24, 0);
-  text("Velocity: "+velocity+" mm/s", width/8, 2*height/24, 0);
+  //text("Velocity: "+velocity+" mm/s", width/8, 2*height/24, 0);
+  text("Received Byte: "+receivedByte, width/8, 2*height/24, 0);
   text("Frame Rate: "+frameRate, width/8, 3*height/24, 0);
+  // ------
 
+  // rendering cylinder
   pushMatrix();
   lights();
   translate(width/2, height/2);
@@ -131,30 +154,20 @@ void draw() {
   cylinder(24, mmToPix(300 * heightAdjust), mmToPix(barLength*widthAdjust));
   //height: 20 -> 400mm : set by 1/20
   //width: 100 -> 105 : set by 0.95
-  
-  translate(0, -height/4);
-  cylinder(24, mmToPix(30 * heightAdjust), mmToPix(10*widthAdjust));
+  // for check length
+  //translate(0, -height/4);
+  //cylinder(24, mmToPix(30 * heightAdjust), mmToPix(10*widthAdjust));
   popMatrix();
+  // ----
 
-  // for velocity-based change
-  if (isMoving) {
-    barLength += velocity / frameRate;
-    frameTimer += 1;
+  em.update(state);
 
-    if (frameTimer >= resetTime * frameRate || barLength >= 590) {
-      frameTimer = 0;
-      barLength = DEFAULT_LENGTH;
-    }
-  }
+
   changeParameter();
 }
 
-void expandVibration() {
-  
-}
-
-void shrinkVibration() {
-  
+void resetBarLength() {
+  barLength = DEFAULT_LENGTH;
 }
 
 void keyPressed() {
@@ -166,8 +179,25 @@ void keyPressed() {
   if (key == 's') {
     // start trial
     state = State.VIBRATION;
-    
+    em.startVibration();
   }
+
+  if (key == 'm') {
+    // measure length
+    em.measureLength();
+    em.waitForMillis(500);
+    em.setNextCondition();
+  }
+
+  if (key == 'i') {
+    // debug illusion induced
+    em.illusionInduced();
+  }
+}
+
+void exit() {
+  em.onExit();
+  super.exit();
 }
 
 void cylinder(int sides, float r, float h) {

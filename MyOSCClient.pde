@@ -36,12 +36,26 @@ class MyOSCClient {
     audioState = (audioState + 1) % 2;
     sendOSC("/on", audioState);
   }
-  
+
   void setFreq(int ch, float freq) {
     String address = "/" + ch + "/freq";
     sendOSC(address, freq);
   }
-  
+
+  void setAllAmp(float amp) {
+    for (int ch = 1; ch <= 8; ch++) {
+      String address = "/" + ch + "/amp";
+      sendOSC(address, amp);
+    }
+  }
+
+  void setAllFreq(float freq) {
+    for (int ch = 1; ch <= 8; ch++) {
+      String address = "/" + ch + "/freq";
+      sendOSC(address, freq);
+    }
+  }
+
   void setAmp(int ch, float amp) {
     String address = "/" + ch + "/amp";
     sendOSC(address, amp);
