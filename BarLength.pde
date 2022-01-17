@@ -1,4 +1,13 @@
 import processing.serial.*;
+/*****************
+1. please change the subject's name before starting the experiment.
+2. make sure that a file that includes conditions is located like "data/conditions/---.csv"
+3. press 's' key to start vibration 
+(in this phase, the switch will work for recording illusion)
+4. press 'm' key to measure current bar length 
+(in this phase, the switch will work for changing length)
+******************/
+
 
 public enum Mode {
   EXPAND(0x0f),
@@ -67,7 +76,8 @@ int counter = 0;
 int receivedByte = 0;
 void serialEvent(Serial p) {
   if (p.available() > 1) {
-    while (p.read() != 0xFF) p.read();
+    // not needed header because only 1 byte will be received
+    //while (p.read() != 0xFF) p.read();
 
     receivedByte = p.read();
     if (state == State.VIBRATION) {
@@ -129,7 +139,7 @@ void draw() {
   if (state == State.VIBRATION) {
     background(255, 255, 255); // reset
   } else if (state == State.MEASURE_LENGTH) {
-    background(255, 220, 220);
+    background(255, 230, 230);
   } else if (state == State.FINISH) {
     background(220, 255, 220);
   } else {
@@ -178,12 +188,14 @@ void keyPressed() {
 
   if (key == 's') {
     // start trial
+    if (state == State.FINISH) return;
     state = State.VIBRATION;
     em.startVibration();
   }
 
   if (key == 'm') {
     // measure length
+    if (state == State.FINISH) return;
     em.measureLength();
     em.waitForMillis(500);
     em.setNextCondition();

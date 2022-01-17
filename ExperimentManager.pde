@@ -99,7 +99,7 @@ public class ExperimentManager {
 
       //println(millis() - startTime);
       // it has been passed resetTime after vibration on
-      if ((millis() - startTime)/1000.0 >= vibrationTime) {
+      if ((millis() - this.startTime)/1000.0 >= vibrationTime) {
         this.stopVibration();
         state = State.MEASURE_LENGTH;
       }
@@ -148,7 +148,7 @@ public class ExperimentManager {
     if (state == State.FINISH) return;
     // initialize variables for starting trial
     resetIllusionTable();
-    startTime = millis();
+    this.startTime = millis();
     illusionPerceived = 0;
 
     if (vibrationMode == null) {
