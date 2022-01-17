@@ -37,8 +37,13 @@ float pixelPitch = 0.311; // mm
 Serial serial;
 String portNum = "COM5";
 int baudrate = 115200;
+int counter = 0;
+int receivedByte = 0;
 
 final float DEFAULT_LENGTH = 300; // mm
+float barLength = 300.0;
+float widthAdjust = 0.95;
+float heightAdjust = 1/20.0;
 
 Mode mode = Mode.NONE;
 State state = State.NONE;
@@ -51,8 +56,7 @@ ExperimentManager em = new ExperimentManager(subject);
 
 void setup() {
   fullScreen(P3D, 1);
-  //String[] list = Serial.list();
-  //println(list.length);
+
   try {
     serial = new Serial(this, Serial.list()[0], baudrate);
   }
@@ -72,8 +76,7 @@ void setup() {
   em.setNextCondition();
 }
 
-int counter = 0;
-int receivedByte = 0;
+
 void serialEvent(Serial p) {
   if (p.available() > 1) {
     // not needed header because only 1 byte will be received
@@ -105,7 +108,6 @@ void serialEvent(Serial p) {
   }
 }
 
-
 // I want to use Camera Matrix for conversion
 float pixToMM(float pix) {
   return pix * pixelPitch;
@@ -128,14 +130,8 @@ void changeParameter() {
   }
 }
 
-float t;
-float barLength = 300.0;
-float widthAdjust = 0.95;
-float heightAdjust = 1/20.0;
-color backgroundColor = color(255, 255, 255);
-//float vibrationTime = 10;
-//int frameTimer = 0;
 void draw() {
+  // refresh the screen
   if (state == State.VIBRATION) {
     background(255, 255, 255); // reset
   } else if (state == State.MEASURE_LENGTH) {
@@ -170,9 +166,10 @@ void draw() {
   popMatrix();
   // ----
 
+  // update for experiment
   em.update(state);
-
-
+  
+  // for changing bar length
   changeParameter();
 }
 
@@ -208,10 +205,16 @@ void keyPressed() {
 }
 
 void exit() {
-  em.onExit();
+  em.onExit(); // for stopping the vibration on exit
   super.exit();
 }
 
+///
+// rendering a cylinder
+// int sides: resolusion of the walls
+// float r: radius
+// float h: height
+///
 void cylinder(int sides, float r, float h) {
   float angle = 360.0 / sides;
   float halfHeight = h / 2.0;

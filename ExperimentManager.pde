@@ -32,7 +32,7 @@ public class ExperimentManager {
   ExperimentManager(String _subject) {
     vibrationInit();
     //resetTable();
-    subject = _subject;
+    this.subject = _subject;
   }
 
   // load next condition
@@ -48,7 +48,7 @@ public class ExperimentManager {
       String _m = _row.getString(modeHeader);
       barLength = this.resetLength;
       // set freq
-      oscClient.setAllFreq(this.vibrationFreq);
+      this.oscClient.setAllFreq(this.vibrationFreq);
       // set vibration mode
       if (_m.equals("s")) {
         println("shrink");
@@ -60,42 +60,42 @@ public class ExperimentManager {
       state = State.NONE;
 
       println("loaded next condition!");
-      conditionIndex += 1;
+      this.conditionIndex += 1;
     }
   }
 
 
   public void loadConditionTable() {
-    String file = "conditions/" + this.subject + ".csv";
-    println(file);
-    conditionTable = loadTable(file, "header");
-    println("condition num: " + conditionTable.getRowCount());
+    String _file = "conditions/" + this.subject + ".csv";
+    println(_file);
+    this.conditionTable = loadTable(_file, "header");
+    println("condition num: " + this.conditionTable.getRowCount());
   }
 
   public void resetIllusionTable() {
-    table = new Table();
-    table.addColumn("frame");
-    table.addColumn("millis");
-    table.addColumn("illusion");
+    this.table = new Table();
+    this.table.addColumn("frame");
+    this.table.addColumn("millis");
+    this.table.addColumn("illusion");
   }
 
   public void resetLengthTable() {
-    table = new Table();
-    table.addColumn("length");
+    this.table = new Table();
+    this.table.addColumn("length");
   }
 
   // on exit
   public void onExit() {
-    oscClient.audioOFF();
+    this.oscClient.audioOFF();
   }
 
-  void update(State _state) {
+  public void update(State _state) {
 
     if (_state == State.VIBRATION) {
-      TableRow newRow = this.table.addRow();
-      newRow.setInt("frame", frameCount);
-      newRow.setInt("millis", millis());
-      newRow.setInt("illusion", illusionPerceived);
+      TableRow _newRow = this.table.addRow();
+      _newRow.setInt("frame", frameCount);
+      _newRow.setInt("millis", millis());
+      _newRow.setInt("illusion", illusionPerceived);
 
       //println(millis() - startTime);
       // it has been passed resetTime after vibration on
@@ -110,38 +110,38 @@ public class ExperimentManager {
   // wait application for millis by inserting loop in main thread
   // FIXME: bad method
   public void waitForMillis(int _ms) {
-    int ms = millis();
-    int localTimer = 0;
-    while (localTimer <= _ms) {
-      localTimer = millis() - ms;
+    int _currentMillis = millis();
+    int _localTimer = 0;
+    while (_localTimer <= _ms) {
+      _localTimer = millis() - _currentMillis;
     }
   }
 
   public void measureLength() {
     if (state == State.FINISH) return;
     resetLengthTable();
-    TableRow newRow = this.table.addRow();
-    newRow.setFloat("length", barLength);
+    TableRow _newRow = this.table.addRow();
+    _newRow.setFloat("length", barLength);
 
-    String file = "data/" + subject + "-" + conditionIndex + "-length.csv";
-    saveTable(table, file);
+    String _file = "data/" + this.subject + "-" + this.conditionIndex + "-length.csv";
+    saveTable(this.table, _file);
   }
 
   // -----------------
   public void vibrationInit() {
     // settings of OSC
-    oscClient.init();
-    oscClient.audioON();
+    this.oscClient.init();
+    this.oscClient.audioON();
   }
 
   public void stopVibration() {
     if (state == State.FINISH) return;
     // vibration off
-    oscClient.setAllAmp(0.0);
+    this.oscClient.setAllAmp(0.0);
 
     // save table
-    String file = "data/" + subject + "-" + conditionIndex + "-illusion.csv";
-    saveTable(table, file);
+    String _file = "data/" + this.subject + "-" + this.conditionIndex + "-illusion.csv";
+    saveTable(this.table, _file);
   }
 
   public void startVibration() {
@@ -149,31 +149,31 @@ public class ExperimentManager {
     // initialize variables for starting trial
     resetIllusionTable();
     this.startTime = millis();
-    illusionPerceived = 0;
+    this.illusionPerceived = 0;
 
-    if (vibrationMode == null) {
+    if (this.vibrationMode == null) {
       println("vibration mode is null! something is wrong.");
     }
 
     //oscClient.setAmp(1, 0.5); // temp
     if (this.vibrationMode == VibrationMode.SHRINK) {
       // for shrinkg vib
-      oscClient.setAmp(1, 0.5);
-      oscClient.setAmp(2, 0.5);
-      oscClient.setAmp(5, 0.5);
-      oscClient.setAmp(6, 0.5);
+      this.oscClient.setAmp(1, 0.5);
+      this.oscClient.setAmp(2, 0.5);
+      this.oscClient.setAmp(5, 0.5);
+      this.oscClient.setAmp(6, 0.5);
     } else if (this.vibrationMode == VibrationMode.EXPAND) {
       // for expand vib
-      oscClient.setAmp(3, 0.5);
-      oscClient.setAmp(4, 0.5);
-      oscClient.setAmp(7, 0.5);
-      oscClient.setAmp(8, 0.5);
+      this.oscClient.setAmp(3, 0.5);
+      this.oscClient.setAmp(4, 0.5);
+      this.oscClient.setAmp(7, 0.5);
+      this.oscClient.setAmp(8, 0.5);
     }
   }
 
   // ---------------
   public void illusionInduced() {
     println("illusion induced !!");
-    illusionPerceived = 1;
+    this.illusionPerceived = 1;
   }
 }
