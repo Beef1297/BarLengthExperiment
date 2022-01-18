@@ -13,7 +13,7 @@ class MyOSCClient {
     broadcast = new NetAddress(localAddress, oscPort);
   }
 
-  void sendOSC(String address, float val) {
+  public void sendOSC(String address, float val) {
     /* create a new OscMessage with an address pattern, in this case /test. */
     OscMessage myOscMessage = new OscMessage(address);
     /* add a value (an integer) to the OscMessage */
@@ -22,50 +22,63 @@ class MyOSCClient {
     oscP5.send(myOscMessage, broadcast);
   }
 
-  void audioON() {
+  public void audioON() {
     audioState = 1;
     sendOSC("/on", audioState);
   }
 
-  void audioOFF() {
+  public void audioOFF() {
     audioState = 0;
     sendOSC("/on", audioState);
   }
 
-  void toggleAudioOutput() {
+  public void toggleAudioOutput() {
     audioState = (audioState + 1) % 2;
     sendOSC("/on", audioState);
   }
 
-  void setFreq(int ch, float freq) {
+  public void setGate(int ch, int val) {
+    String address = "/" + ch + "/gate";
+    sendOSC(address, val);
+  }
+
+  public void setAllGate(int val) {
+    for (int i = 1; i <= 8; i++) {
+      String address = "/" + i + "/gate";
+      sendOSC(address, val);
+    }
+  }
+
+  public void setFreq(int ch, float freq) {
     String address = "/" + ch + "/freq";
     sendOSC(address, freq);
   }
 
-  void setAllAmp(float amp) {
-    for (int ch = 1; ch <= 8; ch++) {
-      String address = "/" + ch + "/amp";
-      sendOSC(address, amp);
-    }
-  }
+  //public void setAllAmp(float amp) {
+  //  for (int ch = 1; ch <= 8; ch++) {
+  //    String address = "/" + ch + "/amp";
+  //    sendOSC(address, amp);
+  //  }
+  //}
 
-  void setAllFreq(float freq) {
+  public void setAllFreq(float freq) {
     for (int ch = 1; ch <= 8; ch++) {
       String address = "/" + ch + "/freq";
       sendOSC(address, freq);
     }
   }
 
-  void setAmp(int ch, float amp) {
-    String address = "/" + ch + "/amp";
-    sendOSC(address, amp);
-  }
+  //public void setAmp(int ch, float amp) {
+  //  String address = "/" + ch + "/amp";
+  //  sendOSC(address, amp);
+  //}
 
-  void init() {
+  public void init() {
     audioOFF();
     for (int i = 1; i <= 4; i++) {
       setFreq(i, 70.0);
-      setAmp(i, 0.0);
+      //setAmp(i, 0.0); // do not change preset amplitude
+      setGate(i, 0);
     }
   }
 

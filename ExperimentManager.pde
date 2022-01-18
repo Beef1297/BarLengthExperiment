@@ -7,16 +7,17 @@ public class ExperimentManager {
 
   MyOSCClient oscClient = new MyOSCClient();
   // csv logging
-  Table table;
+  Table illusionTable;
   // for load conditions
   public Table conditionTable;
+  public Table practiceConditionTable;
 
   int illusionPerceived = 0; // if illusion is induced, turn to 1;
   int conditionIndex = 0;
   int conditionNum = 0;
 
   int startTime = 0; // milliseconds
-  public int vibrationTime = 2; // seconds
+  public int vibrationTime = 10; // seconds
   public float vibrationFreq = 70;
   public int resetLength = 300;
   VibrationMode vibrationMode;
@@ -33,6 +34,26 @@ public class ExperimentManager {
     vibrationInit();
     //resetTable();
     this.subject = _subject;
+  }
+
+  int popupStartTime = -1;
+  String popupText;
+  public void setPopup(String _text) {
+    this.popupStartTime = millis();
+    this.popupText = _text;
+  }
+
+  public void displayTempPopup() {
+    if (this.popupStartTime < 0) return;
+    int t = millis() - this.popupStartTime;
+    float val = t/2000.0;
+    if (val > 1.0) {
+      this.popupStartTime = -1;
+      return;
+    }
+    textSize(16);
+    fill(255*val);
+    text(this.popupText, 100, height - 100);
   }
 
   // load next condition
@@ -73,15 +94,15 @@ public class ExperimentManager {
   }
 
   public void resetIllusionTable() {
-    this.table = new Table();
-    this.table.addColumn("frame");
-    this.table.addColumn("millis");
-    this.table.addColumn("illusion");
+    this.illusionTable = new Table();
+    this.illusionTable.addColumn("frame");
+    this.illusionTable.addColumn("millis");
+    this.illusionTable.addColumn("illusion");
   }
 
   public void resetLengthTable() {
-    this.table = new Table();
-    this.table.addColumn("length");
+    this.illusionTable = new Table();
+    this.illusionTable.addColumn("length");
   }
 
   // on exit
@@ -92,7 +113,7 @@ public class ExperimentManager {
   public void update(State _state) {
 
     if (_state == State.VIBRATION) {
-      TableRow _newRow = this.table.addRow();
+      TableRow _newRow = this.illusionTable.addRow();
       _newRow.setInt("frame", frameCount);
       _newRow.setInt("millis", millis());
       _newRow.setInt("illusion", illusionPerceived);
@@ -102,6 +123,11 @@ public class ExperimentManager {
       if ((millis() - this.startTime)/1000.0 >= vibrationTime) {
         this.stopVibration();
         state = State.MEASURE_LENGTH;
+      }
+    } else if (_state == State.DEBUG_VIBRATION) {
+      if ((millis() - this.startTime)/1000.0 >= vibrationTime) {
+        state = State.NONE;
+        this.oscClient.setAllGate(0);
       }
     }
   }
@@ -120,11 +146,12 @@ public class ExperimentManager {
   public void measureLength() {
     if (state == State.FINISH) return;
     resetLengthTable();
-    TableRow _newRow = this.table.addRow();
+    TableRow _newRow = this.illusionTable.addRow();
     _newRow.setFloat("length", barLength);
 
-    String _file = "data/" + this.subject + "-" + this.conditionIndex + "-length.csv";
-    saveTable(this.table, _file);
+    String _file = "data/" + this.subject + "/" + this.conditionIndex + "-length.csv";
+    saveTable(this.illusionTable, _file);
+    this.setPopup("saved length");
   }
 
   // -----------------
@@ -137,11 +164,12 @@ public class ExperimentManager {
   public void stopVibration() {
     if (state == State.FINISH) return;
     // vibration off
-    this.oscClient.setAllAmp(0.0);
+    this.oscClient.setAllGate(0);
 
     // save table
-    String _file = "data/" + this.subject + "-" + this.conditionIndex + "-illusion.csv";
-    saveTable(this.table, _file);
+    String _file = "data/" + this.subject + "/" + this.conditionIndex + "-illusion.csv";
+    saveTable(this.illusionTable, _file);
+    this.setPopup("saved illusion table");
   }
 
   public void startVibration() {
@@ -156,20 +184,39 @@ public class ExperimentManager {
     }
 
     //oscClient.setAmp(1, 0.5); // temp
-    if (this.vibrationMode == VibrationMode.SHRINK) {
+    if (this.vibrationMode == VibrationMode.EXPAND) {
       // for shrinkg vib
-      this.oscClient.setAmp(1, 0.5);
-      this.oscClient.setAmp(2, 0.5);
-      this.oscClient.setAmp(5, 0.5);
-      this.oscClient.setAmp(6, 0.5);
-    } else if (this.vibrationMode == VibrationMode.EXPAND) {
+      this.oscClient.setGate(1, 1);
+      this.oscClient.setGate(2, 1);
+      this.oscClient.setGate(5, 1);
+      this.oscClient.setGate(6, 1);
+    } else if (this.vibrationMode == VibrationMode.SHRINK) {
       // for expand vib
-      this.oscClient.setAmp(3, 0.5);
-      this.oscClient.setAmp(4, 0.5);
-      this.oscClient.setAmp(7, 0.5);
-      this.oscClient.setAmp(8, 0.5);
+      this.oscClient.setGate(3, 1);
+      this.oscClient.setGate(4, 1);
+      this.oscClient.setGate(7, 1);
+      this.oscClient.setGate(8, 1);
     }
   }
+
+  public void expandVibration() {
+    this.oscClient.setGate(1, 1);
+    this.oscClient.setGate(2, 1);
+    this.oscClient.setGate(5, 1);
+    this.oscClient.setGate(6, 1);
+    state = State.DEBUG_VIBRATION;
+    this.startTime = millis();
+  }
+
+  public void shrinkVibration() {
+    this.oscClient.setGate(3, 1);
+    this.oscClient.setGate(4, 1);
+    this.oscClient.setGate(7, 1);
+    this.oscClient.setGate(8, 1);
+    state = State.DEBUG_VIBRATION;
+    this.startTime = millis();
+  }
+
 
   // ---------------
   public void illusionInduced() {

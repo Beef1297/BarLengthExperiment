@@ -1,13 +1,16 @@
-import processing.serial.*;
 /*****************
-1. please change the subject's name before starting the experiment.
-2. make sure that a file that includes conditions is located like "data/conditions/---.csv"
-3. press 's' key to start vibration 
-(in this phase, the switch will work for recording illusion)
-4. press 'm' key to measure current bar length 
-(in this phase, the switch will work for changing length)
-******************/
-
+ created by Keigo Ushiyama 2022/1/16
+ To present vibration, this program uses OSC (I'm using Max8).
+ 
+ 1. please change the subject's name before starting the experiment.
+ 2. make sure that a csv file (utf-8 encoding) that includes conditions is located in a path
+ like "data/conditions/---.csv"
+ 3. press 's' key to start vibration
+ (in this phase, the switch will work for recording illusion)
+ 4. press 'm' key to measure current bar length
+ (in this phase, the switch will work for changing length)
+ ******************/
+import processing.serial.*;
 
 public enum Mode {
   EXPAND(0x0f),
@@ -25,7 +28,10 @@ public enum Mode {
 }
 // experiment state enum
 public enum State {
-  VIBRATION,
+  DEBUG_VIBRATION,
+    PRACTICE,
+    ADJUST_INIT_LENGTH, // this can be integrated with NONE?
+    VIBRATION,
     MEASURE_LENGTH,
     FINISH,
     NONE;
@@ -50,7 +56,7 @@ State state = State.NONE;
 
 //float velocity = 1.0; // mm/s
 
-String subject = "test";
+String subject = "test_rehearsal"; // CHANGE THIS !!!!!
 ExperimentManager em = new ExperimentManager(subject);
 
 
@@ -58,15 +64,14 @@ void setup() {
   fullScreen(P3D, 1);
 
   try {
-    serial = new Serial(this, Serial.list()[0], baudrate);
+    serial = new Serial(this, portNum, baudrate);
   }
-  catch (ArrayIndexOutOfBoundsException e) {
+  catch (RuntimeException e) {
     e.printStackTrace();
     exit();
   }
 
-  // debug
-  //state = State.MEASURE_LENGTH;
+
   //
   frameRate(50);
 
@@ -74,6 +79,9 @@ void setup() {
   em.loadConditionTable(); // this method must be called in setup();
   // set first condition
   em.setNextCondition();
+
+  // debug
+  //state = State.MEASURE_LENGTH;
 }
 
 
@@ -102,6 +110,8 @@ void serialEvent(Serial p) {
       } else {
         mode = Mode.NONE;
       }
+    } else if (state == State.NONE) {
+      if (receivedByte > 0x0c) em.setPopup("received byte: " + receivedByte);
     }
     //println(val, counter);
     counter++;
@@ -120,9 +130,9 @@ float mmToPix(float mm) {
 void changeParameter() {
   //boolean changing = mode == Mode.EXPAND || mode == Mode.SHRINK;
   if (mode == Mode.EXPAND) {
-    barLength += 0.1;
+    barLength += 0.2; // if frame rate is 50 -> 1 mm/s (50 * 0.2)
   } else if (mode == Mode.SHRINK) {
-    barLength -= 0.1;
+    barLength -= 0.2; // if frame rate is 50 -> 1 mm/s (50 * 0.2)
   } else if (mode == Mode.TOGGLE) {
     // FIXME: It's difficult to stop by just one time... because need to push at
     // the "very" same timing.
@@ -133,21 +143,23 @@ void changeParameter() {
 void draw() {
   // refresh the screen
   if (state == State.VIBRATION) {
-    background(255, 255, 255); // reset
+    background(220, 220, 255); // reset
   } else if (state == State.MEASURE_LENGTH) {
     background(255, 230, 230);
   } else if (state == State.FINISH) {
     background(220, 255, 220);
+  } else if (state == State.DEBUG_VIBRATION) {
+    background(255, 255, 220);
   } else {
     background(255);
   }
   // --- text --
   textSize(32);
   fill(0);
-  text("Length: "+barLength+" mm", width/8, height/24, 0);
+  //text("Length: "+barLength+" mm", width/8, height/24, 0);
   //text("Velocity: "+velocity+" mm/s", width/8, 2*height/24, 0);
-  text("Received Byte: "+receivedByte, width/8, 2*height/24, 0);
-  text("Frame Rate: "+frameRate, width/8, 3*height/24, 0);
+  //text("Received Byte: "+receivedByte, width/8, 2*height/24, 0);
+  //text("Frame Rate: "+frameRate, width/8, 3*height/24, 0);
   // ------
 
   // rendering cylinder
@@ -168,7 +180,8 @@ void draw() {
 
   // update for experiment
   em.update(state);
-  
+  em.displayTempPopup();
+
   // for changing bar length
   changeParameter();
 }
@@ -183,16 +196,29 @@ void keyPressed() {
     barLength = DEFAULT_LENGTH;
   }
 
+  if (key == 'e') {
+    // present expand vibration
+    em.expandVibration();
+  }
+
   if (key == 's') {
+    // present shrink vibration
+    em.shrinkVibration();
+  }
+
+  if (key == 'v') {
     // start trial
-    if (state == State.FINISH) return;
+    if (state == State.FINISH || state == State.VIBRATION) return;
+    println("start vibration");
     state = State.VIBRATION;
     em.startVibration();
+    em.setPopup("Vibration started");
   }
 
   if (key == 'm') {
     // measure length
-    if (state == State.FINISH) return;
+    if (state == State.FINISH || state == State.VIBRATION) return;
+    println("measure length");
     em.measureLength();
     em.waitForMillis(500);
     em.setNextCondition();
@@ -235,8 +261,8 @@ void cylinder(int sides, float r, float h) {
   // draw body
   beginShape(TRIANGLE_STRIP);
   for (int i = 0; i < sides + 1; i++) {
-    float x = cos( radians( i * angle ) ) * r;
-    float y = sin( radians( i * angle ) ) * r;
+    float x = cos(radians(i * angle)) * r;
+    float y = sin(radians(i * angle)) * r;
     vertex(halfHeight, y, x);
     vertex(-halfHeight, y, x);
   }
