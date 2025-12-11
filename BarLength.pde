@@ -37,11 +37,17 @@ public enum State {
     NONE;
 }
 
-float pixelPitch = 0.311; // mm
+//float pixelPitch = 0.311; // mm (1920x1080)
+float pixelPitch = 0.232;
+
+//int WIDTH_PIXEL = 1920;
+int WIDTH_PIXEL = 3340;
+//int HEIGHT_PIXEL = 1080;
+int HEIGHT_PIXEL = 1440;
 
 // serial
 Serial serial;
-String portNum = "COM5";
+String portNum = "COM4";
 int baudrate = 115200;
 int counter = 0;
 int receivedByte = 0;
@@ -52,16 +58,25 @@ float widthAdjust = 0.95;
 float heightAdjust = 1/20.0;
 
 Mode mode = Mode.NONE;
-State state = State.NONE;
+State state = State.ADJUST_INIT_LENGTH;
 
 //float velocity = 1.0; // mm/s
 
-String subject = "test_rehearsal"; // CHANGE THIS !!!!!
+// ----------------------------------------
+String subject = "sample"; // CHANGE THIS !!!!!
 ExperimentManager em = new ExperimentManager(subject);
+// ----------------------------
 
+
+int screenW = int(WIDTH_PIXEL/1.2);
+int screenH = int(HEIGHT_PIXEL/1.2);
+
+void settings() {
+  //size(screenW, screenH, P3D);
+  fullScreen(P3D);
+}
 
 void setup() {
-  fullScreen(P3D, 1);
 
   try {
     serial = new Serial(this, portNum, baudrate);
@@ -74,11 +89,12 @@ void setup() {
 
   //
   frameRate(50);
-
+  //em.audioStop();
+  
   // experiment manager
   em.loadConditionTable(); // this method must be called in setup();
-  // set first condition
-  em.setNextCondition();
+  // set first condition: first -> practice
+  //em.setNextCondition();
 
   // debug
   //state = State.MEASURE_LENGTH;
@@ -96,8 +112,9 @@ void serialEvent(Serial p) {
       // that will mean illusion is induced.
       if (receivedByte != Mode.NONE.getInt()) {
         em.illusionInduced();
+        println("illusion induced!");
       }
-    } else if (state == State.MEASURE_LENGTH) {
+    } else if (state == State.MEASURE_LENGTH || state == State.ADJUST_INIT_LENGTH) {
       //print(val, counter);
       if (receivedByte == Mode.EXPAND.getInt()) {
         mode = Mode.EXPAND;
@@ -150,7 +167,9 @@ void draw() {
     background(220, 255, 220);
   } else if (state == State.DEBUG_VIBRATION) {
     background(255, 255, 220);
-  } else {
+  } else if (state == State.PRACTICE) {
+    background(220);
+  } else if (state == State.ADJUST_INIT_LENGTH) {
     background(255);
   }
   // --- text --
@@ -163,9 +182,14 @@ void draw() {
   // ------
 
   // rendering cylinder
+
   pushMatrix();
   lights();
   translate(width/2, height/2);
+  strokeWeight(2);
+  stroke(125);
+  drawMeasure();
+
   strokeWeight(1);
   noStroke();
   fill(150, 150, 150);
@@ -191,25 +215,40 @@ void resetBarLength() {
 }
 
 void keyPressed() {
+  if (keyCode == RIGHT) {
+    mode = Mode.EXPAND;
+  } else if (keyCode == LEFT) {
+    mode = Mode.SHRINK;
+  } else {
+    mode = Mode.NONE;
+  }
+  
   if (key == 'r') {
     //reset
-    barLength = DEFAULT_LENGTH;
+    em.resetExperimentConditions();
   }
-
+  if (key == 'a') {
+    em.againTrial();
+  }
+  if (key == 'p') {
+    // practice
+    em.practice();
+  }
   if (key == 'e') {
     // present expand vibration
+    em.setFrequency(80);
     em.expandVibration();
   }
-
   if (key == 's') {
     // present shrink vibration
+    em.setFrequency(0);
     em.shrinkVibration();
   }
-
   if (key == 'v') {
     // start trial
     if (state == State.FINISH || state == State.VIBRATION) return;
     println("start vibration");
+    em.isPractice = false;
     state = State.VIBRATION;
     em.startVibration();
     em.setPopup("Vibration started");
@@ -233,6 +272,30 @@ void keyPressed() {
 void exit() {
   em.onExit(); // for stopping the vibration on exit
   super.exit();
+}
+
+void drawMeasure() {
+  int i = 0;
+  for (float x = 0; x > -width/2; x -= mmToPix(2)) {
+    float y = 10;
+    if ((i % 5) == 0) {
+      y = 50;
+    }
+    line(x, -y, x, y);
+    i++;
+  }
+  i = 0;
+  for (float x = 0; x < width/2; x += mmToPix(2)) {
+    float y = 10;
+    if ((i % 5) == 0) {
+      y = 50;
+    }
+    line(x, -y, x, y);
+    i++;
+  }
+  noStroke();
+  fill(255, 0, 0);
+  triangle(0, -65, 10, -75, -10, -75);
 }
 
 ///

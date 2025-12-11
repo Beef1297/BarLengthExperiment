@@ -68,10 +68,10 @@ class MyOSCClient {
     }
   }
 
-  //public void setAmp(int ch, float amp) {
-  //  String address = "/" + ch + "/amp";
-  //  sendOSC(address, amp);
-  //}
+  public void setAmp(int ch, float amp) {
+    String address = "/" + ch + "/amp";
+    sendOSC(address, amp);
+  }
 
   public void init() {
     audioOFF();
